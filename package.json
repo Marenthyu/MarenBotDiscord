@@ -1,0 +1,18 @@
+{
+  "name": "discordslash",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "BSD-3",
+  "dependencies": {
+    "got": "^11.8.2"
+  },
+  "devDependencies": {
+    "tweetnacl": "^1.0.3"
+  }
+}
