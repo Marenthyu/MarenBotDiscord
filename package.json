@@ -11,7 +11,8 @@
   "license": "BSD-3",
   "dependencies": {
     "got": "^11.8.2",
-    "promise-mysql": "^5.0.3"
+    "promise-mysql": "^5.0.3",
+    "seedrandom": "^3.0.5"
   },
   "devDependencies": {
     "tweetnacl": "^1.0.3"

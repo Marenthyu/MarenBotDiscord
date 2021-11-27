@@ -37,6 +37,7 @@ mysql.createConnection({
 }).then(async (r) => {
     con = r;
     console.log("Connected!");
+    await ping();
 });
 
 exports.getCurrentGodImageQueue = async () => {
@@ -55,4 +56,35 @@ exports.getCurrentGodImageQueue = async () => {
         'WHERE g.state = \'pending\' ORDER BY g.created ASC;');
     console.log("Godimage queue: " + JSON.stringify(result));
     return result;
+}
+
+exports.createToken = async (newToken) => {
+    try {
+        let result = await con.query('INSERT INTO tokens(token, points, badgeID, waifuid, boostername, claimable, bet_prize, type, only_redeemable_by, not_redeemable_by) VALUES ?', [
+            [
+                newToken.name,
+                newToken.points,
+                newToken.badgeID ? newToken.badgeID : null,
+                newToken.waifuID ? newToken.waifuID : null,
+                newToken.boostername ? newToken.boostername : null,
+                newToken.claimable ? 1 : 0,
+                newToken.betprize,
+                newToken.type,
+                newToken.onlyredeemableby ? newToken.onlyredeemableby : null,
+                newToken.notredeemableby ? newToken.notredeemableby : null
+            ]
+        ]);
+        return result.affectedRows > 0;
+    } catch (e) {
+        return false;
+    }
+
+
+}
+
+
+async function ping() {
+    await con.ping();
+    console.log("ping!");
+    setTimeout(ping, 120000);
 }
