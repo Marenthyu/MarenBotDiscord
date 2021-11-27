@@ -6,6 +6,8 @@ const nacl = require('tweetnacl');
 const fs = require('fs');
 
 const commands = require('./commands');
+const constants = require('./discordConstants');
+const components = require('./components');
 
 if (!fs.existsSync('secret.txt')) {
     console.error("Missing secret.txt for client secret. Please provide it.");
@@ -22,9 +24,15 @@ if (!fs.existsSync('discordhook.txt')) {
     process.exit(1);
 }
 
+if (!fs.existsSync('appveyortoken.txt')) {
+    console.error("Missing appveyortoken.txt for the AppVeyor Token to check for Randomizer Builds. Please provide it.");
+    process.exit(1);
+}
+
 const secret = fs.readFileSync('secret.txt').toString().trim();
 const twitch_secret = fs.readFileSync('twitchsecret.txt').toString().trim();
 const discord_webhook = fs.readFileSync('discordhook.txt').toString().trim();
+const appveyor_token = fs.readFileSync('appveyortoken.txt').toString().trim();
 const client_id = '183300066658877441';
 const twitch_client_id = 'l687ieirmd7mmd5f77tfmb6xkq10s2';
 const scope = 'applications.commands.update';
@@ -32,10 +40,7 @@ const scope = 'applications.commands.update';
 let token = fs.existsSync('token.txt') ? fs.readFileSync('token.txt') : false;
 let twitch_token = fs.existsSync('twitchtoken.txt') ? fs.readFileSync('twitchtoken.txt') : false;
 
-// noinspection JSUnusedLocalSymbols
-const PING_TYPE = 1, PONG_TYPE = 1, APPLICATION_COMMAND_TYPE = 2, MESSAGE_COMPONENT_TYPE = 3, APPLICATION_COMMAND_AUTOCOMPLETE_TYPE = 4;
 
-const CHANNEL_MESSAGE_WITH_SOURCE_RESPONSE_TYPE = 4, UPDATE_MESSAGE_RESPONSE_TYPE = 7;
 
 // Your public key can be found on your application in the Developer Portal
 const PUBLIC_KEY = 'e3fe46878cb1fca040933cf820ee5c5dd391d37d85f5a1f1d4d0799ee79338ea';
@@ -209,13 +214,14 @@ let server = http.createServer(((req, res) => {
             let responseObj = {};
 
             switch (jsonBody.type) {
-                case PING_TYPE: {
-                    responseObj.type = PONG_TYPE;
+                case constants.PING_TYPE: {
+                    responseObj.type = constants.PONG_TYPE;
                     break;
                 }
-                case APPLICATION_COMMAND_TYPE: {
-                    responseObj.type = CHANNEL_MESSAGE_WITH_SOURCE_RESPONSE_TYPE;
+                case constants.APPLICATION_COMMAND_TYPE: {
+                    responseObj.type = constants.CHANNEL_MESSAGE_WITH_SOURCE_RESPONSE_TYPE;
                     jsonBody.rabi_live = live_right_now_details;
+                    jsonBody.appveyor_token = appveyor_token;
                     commands.parseCommand(jsonBody).then((r) => {
                         responseObj.data = r.responseData;
                         res.writeHead(200, 'OK', {"Content-Type":"application/json"});
@@ -225,39 +231,8 @@ let server = http.createServer(((req, res) => {
 
                     return;
                 }
-                case MESSAGE_COMPONENT_TYPE: {
-                    console.log("A Component was used! See above for details...");
-
-                    responseObj.type = UPDATE_MESSAGE_RESPONSE_TYPE;
-                    switch (jsonBody.data.component_type) {
-                        case 2: {
-                            // Button
-                            switch (jsonBody.data.custom_id) {
-                                case "ErinaButton": {
-                                    responseObj.data = {"content":"<:erina:237639561189130240>", components:[]};
-                                    break;
-                                }
-                                default: {
-                                    responseObj.data = {"content":"You interacted with a component, congratulations!", components:[]};
-                                }
-                            }
-                            break;
-                        }
-                        case 3: {
-                            // Select Menu
-                            switch (jsonBody.data.custom_id) {
-                                case "BunnySelector": {
-                                    let splitparts = jsonBody.data.values[0].split(":");
-                                    responseObj.data = {"content":"<:" + splitparts[1] + ":" + splitparts[2] + "> is the best <3", components:[]};
-                                    break;
-                                }
-                                default: {
-                                    responseObj.data = {"content":"You interacted with a component, congratulations!", components:[]};
-                                }
-                            }
-                            break;
-                        }
-                    }
+                case constants.MESSAGE_COMPONENT_TYPE: {
+                    responseObj = components.componentHandler(jsonBody);
                 }
             }
 

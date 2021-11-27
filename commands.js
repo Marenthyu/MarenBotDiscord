@@ -1,6 +1,8 @@
 'use strict';
 let nepbot = require('./nepbot');
 let seedrandom = require('seedrandom');
+let got = require('got');
+
 exports.parseCommand = async (data) => {
 
     let content = "A default response (Unknown command?)";
@@ -11,66 +13,7 @@ exports.parseCommand = async (data) => {
 
     switch (data.data.name) {
         case "bunny": {
-            responseData.content = "Select the best!";
-            responseData.components = [
-                {
-                    type: 1,
-                    components: [
-                        {
-                            type: 3,
-                            custom_id: "BunnySelector",
-                            placeholder: "Select a Bunny",
-                            options: [
-                                {
-                                    label: "Erina",
-                                    value: "EMOJI:erina:237639561189130240",
-                                    emoji: {
-                                        id: "237639561189130240",
-                                        name: "erina",
-                                        animated: false
-                                    }
-                                },
-                                {
-                                    label: "Keke",
-                                    value: "EMOJI:keke:352091489985363969",
-                                    emoji: {
-                                        id: "352091489985363969",
-                                        name: "keke",
-                                        animated: false
-                                    }
-                                },
-                                {
-                                    label: "Noah",
-                                    value: "EMOJI:noah:340057696239616000",
-                                    emoji: {
-                                        id: "340057696239616000",
-                                        name: "noah",
-                                        animated: false
-                                    }
-                                },
-                                {
-                                    label: "Noah 3",
-                                    value: "EMOJI:noah3:237644425059237888",
-                                    emoji: {
-                                        id: "237644425059237888",
-                                        name: "noah3",
-                                        animated: false
-                                    }
-                                },
-                                {
-                                    label: "Irisu",
-                                    value: "EMOJI:irisu:237639569137336320",
-                                    emoji: {
-                                        id: "237639569137336320",
-                                        name: "irisu",
-                                        animated: false
-                                    }
-                                }
-                            ]
-                        }
-                    ]
-                }
-            ]
+            responseData = await bunny();
             break;
         }
         case "echo": {
@@ -102,6 +45,15 @@ exports.parseCommand = async (data) => {
         }
         case "rabistreams": {
             responseData = await rabistreams(data);
+            break;
+        }
+        case "marentesting": {
+            responseData = await randomenu(data);
+            break;
+        }
+        case "rando": {
+            responseData = await randomenu(data);
+            break;
         }
     }
     return {
@@ -268,5 +220,162 @@ async function rabistreams(data) {
     content_string += live_parts.join(", ");
     return {
         content: content_string
+    }
+}
+
+async function bunny() {
+    let responseData = {};
+    responseData.content = "Select the best!";
+    responseData.components = [
+        {
+            type: 1,
+            components: [
+                {
+                    type: 3,
+                    custom_id: "BunnySelector",
+                    placeholder: "Select a Bunny",
+                    options: [
+                        {
+                            label: "Erina",
+                            value: "EMOJI:erina:237639561189130240",
+                            emoji: {
+                                id: "237639561189130240",
+                                name: "erina",
+                                animated: false
+                            }
+                        },
+                        {
+                            label: "Keke",
+                            value: "EMOJI:keke:352091489985363969",
+                            emoji: {
+                                id: "352091489985363969",
+                                name: "keke",
+                                animated: false
+                            }
+                        },
+                        {
+                            label: "Noah",
+                            value: "EMOJI:noah:340057696239616000",
+                            emoji: {
+                                id: "340057696239616000",
+                                name: "noah",
+                                animated: false
+                            }
+                        },
+                        {
+                            label: "Noah 3",
+                            value: "EMOJI:noah3:237644425059237888",
+                            emoji: {
+                                id: "237644425059237888",
+                                name: "noah3",
+                                animated: false
+                            }
+                        },
+                        {
+                            label: "Irisu",
+                            value: "EMOJI:irisu:237639569137336320",
+                            emoji: {
+                                id: "237639569137336320",
+                                name: "irisu",
+                                animated: false
+                            }
+                        }
+                    ]
+                }
+            ]
+        }
+    ]
+    return responseData;
+}
+
+async function randomenu(data) {
+
+    let appveyorInfo = await got('https://ci.appveyor.com/api/projects/wcko87/rabiribi-randomizer-ui-rc94b', {
+        headers: {
+            Authorization: "Bearer " + data.appveyor_token
+        }
+    }).json();
+
+    //console.log(JSON.stringify(appveyorInfo))
+
+    let latestJob = appveyorInfo.build.jobs[0];
+
+    let latestJobId = latestJob.jobId;
+
+    // for testing
+    //latestJobId = "p17f5koln0f1ykm2";
+
+    let responseContent = "Randomizer Menu - ";
+    let responseComponents;
+
+    switch (latestJob.status) {
+        case "queued":
+        case "started":
+        case "running": {
+            responseContent += "a build for Version " + appveyorInfo.build.version + " is " + latestJob.status + "! Check back in a bit!";
+            responseComponents = [
+                {
+                    "type": 1,
+                    "components": [
+                        {
+                            "style": 5,
+                            "label": `Check AppVeyor`,
+                            "url": "https://ci.appveyor.com/project/wcko87/rabiribi-randomizer-ui-rc94b/build/artifacts",
+                            "disabled": false,
+                            "type": 2
+                        }
+                    ]
+                }
+            ]
+            break;
+        }
+        case "success": {
+            let artifactURL = "https://ci.appveyor.com/api/buildjobs/" + latestJobId + "/artifacts/randomizer-ui.zip";
+
+            let artifactResponse;
+
+            artifactResponse = await got({
+                url: artifactURL,
+                followRedirect: false,
+                throwHttpErrors: false
+            });
+
+            console.log("Status Code of artifactRequest:" + artifactResponse.statusCode);
+
+            responseContent += (artifactResponse.statusCode === 404 ? "Randomizer Build not found, you may want to trigger a rebuild!" : "Randomizer Build found, version " + appveyorInfo.build.version);
+            responseComponents = [
+                {
+                    "type": 1,
+                    "components": [
+                        {
+                            "style": 5,
+                            "label": `Download`,
+                            "url": artifactURL,
+                            "disabled": artifactResponse.statusCode === 404,
+                            "type": 2
+                        },
+                        {
+                            "style": 5,
+                            "label": `Check AppVeyor`,
+                            "url": "https://ci.appveyor.com/project/wcko87/rabiribi-randomizer-ui-rc94b/build/artifacts",
+                            "disabled": false,
+                            "type": 2
+                        },
+                        {
+                            "style": 4,
+                            "label": `Trigger Rebuild`,
+                            "custom_id": `trigger_rebuild`,
+                            "disabled": artifactResponse.statusCode !== 404,
+                            "type": 2
+                        }
+                    ]
+                }
+            ];
+        }
+    }
+
+    return {
+        content: responseContent,
+        components: responseComponents
     }
 }
