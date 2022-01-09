@@ -1,0 +1,17 @@
+{
+  "discord": {
+    "client_id": "183300066658877441",
+    "secret": "MyTotallySecretSecretNooneKnows!!",
+    "public_key": "e3fe46878cb1fca040933cf820ee5c5dd391d37d85f5a1f1d4d0799ee79338ea",
+    "rabi_hook": "https://example.com/api/webhook/snowflake/somethingsomethingtoken",
+    "nep_hook": "https://example.com/yougetit"
+  },
+  "twitch": {
+    "client_id": "l687ieirmd7mmd5f77tfmb6xkq10s2",
+    "client_secret": "MySecondAwesomeSecretForTheTwitchAPIClient",
+    "eventsub_secret": "YetAnotherSecretPhraseWeShouldNotReuse!"
+  },
+  "appveyor": {
+    "token": "AAABBBBBBBBBBCCCCCCC"
+  }
+}

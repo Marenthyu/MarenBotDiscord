@@ -10,55 +10,17 @@ const constants = require('./discordConstants');
 const components = require('./components');
 const crypto = require("crypto");
 
-if (!fs.existsSync('secret.txt')) {
-    console.error("Missing secret.txt for client secret. Please provide it.");
-    process.exit(1);
-}
+const config = require('./config.json');
 
-if (!fs.existsSync('twitchsecret.txt')) {
-    console.error("Missing twitchsecret.txt for Twitch client secret. Please provide it.");
-    process.exit(1);
-}
+const discord_scope = 'applications.commands.update';
 
-if (!fs.existsSync('rabi_discordhook.txt')) {
-    console.error("Missing rabi_discordhook.txt for the discord webhook to notify about rabi-ribi live stream changes. Please provide it.");
-    process.exit(1);
-}
-
-if (!fs.existsSync('nep_webhook.txt')) {
-    console.error("Missing nep_webhook.txt for the discord webhook to notify about nep live stream changes. Please provide it.");
-    process.exit(1);
-}
-
-if (!fs.existsSync('appveyortoken.txt')) {
-    console.error("Missing appveyortoken.txt for the AppVeyor Token to check for Randomizer Builds. Please provide it.");
-    process.exit(1);
-}
-
-if (!fs.existsSync('eventsubsecret.txt')) {
-    console.error("Missing eventsubsecret.txt for the EventSub Secret so we can listen to Twitch notifications of people going live. Please provide it.");
-    process.exit(1);
-}
-
-const secret = fs.readFileSync('secret.txt').toString().trim();
-const twitch_secret = fs.readFileSync('twitchsecret.txt').toString().trim();
-const rabi_discord_webhook = fs.readFileSync('rabi_discordhook.txt').toString().trim();
-const nep_discord_webhook = fs.readFileSync('nep_webhook.txt').toString().trim();
-const appveyor_token = fs.readFileSync('appveyortoken.txt').toString().trim();
-const eventsub_secret = fs.readFileSync('eventsubsecret.txt').toString().trim();
-const client_id = '183300066658877441';
-const twitch_client_id = 'l687ieirmd7mmd5f77tfmb6xkq10s2';
-const scope = 'applications.commands.update';
-
-let token = fs.existsSync('token.txt') ? fs.readFileSync('token.txt') : false;
+// tokens are kept in seperate files for ease of saving and refactoring. Config is for _static_ things.
+let discord_token = fs.existsSync('token.txt') ? fs.readFileSync('token.txt') : false;
 let twitch_token = fs.existsSync('twitchtoken.txt') ? fs.readFileSync('twitchtoken.txt') : false;
 
-
-// Your public key can be found on your application in the Developer Portal
-const PUBLIC_KEY = 'e3fe46878cb1fca040933cf820ee5c5dd391d37d85f5a1f1d4d0799ee79338ea';
-
-let live_right_now = [];
-let live_right_now_details = [];
+// "Global" Objects
+let rabi_live_right_now = [];
+let rabi_live_right_now_details = [];
 
 let valid_nep_auth_states = [];
 
@@ -89,8 +51,8 @@ async function verifyAndRenewTwitchToken() {
                 url: 'https://id.twitch.tv/oauth2/token',
                 method: 'POST',
                 form: {
-                    client_id: twitch_client_id,
-                    client_secret: twitch_secret.toString(),
+                    client_id: config.twitch.client_id,
+                    client_secret: config.twitch.client_secret.toString(),
                     grant_type: 'client_credentials'
                 }
             }).json();
@@ -112,14 +74,14 @@ async function verifyAndRenewTwitchToken() {
     return needsToken;
 }
 
-async function loadup() {
+async function verifyAndRenewDiscordToken() {
     let needsToken = true;
-    if (token) {
+    if (discord_token) {
         try {
             await got({
                 url: 'https://discord.com/api/oauth2/@me',
                 method: 'GET',
-                headers: {Authorization: 'Bearer ' + token}
+                headers: {Authorization: 'Bearer ' + discord_token}
             }).json();
             needsToken = false;
             console.log("Old token was valid, reusing...");
@@ -136,9 +98,9 @@ async function loadup() {
         try {
             console.log({
                 form: {
-                    client_id: client_id,
-                    client_secret: secret.toString(),
-                    scope: scope,
+                    client_id: config.discord.client_id,
+                    client_secret: config.discord.secret.toString(),
+                    scope: discord_scope,
                     grant_type: 'client_credentials'
                 }
             });
@@ -146,16 +108,16 @@ async function loadup() {
                 url: 'https://discord.com/api/oauth2/token',
                 method: 'POST',
                 form: {
-                    client_id: client_id,
-                    client_secret: secret.toString(),
-                    scope: scope,
+                    client_id: config.discord.client_id,
+                    client_secret: config.discord.secret.toString(),
+                    scope: discord_scope,
                     grant_type: 'client_credentials'
                 }
             }).json();
             console.log("Got response for token, setting...");
-            token = response.access_token;
+            discord_token = response.access_token;
 
-            fs.writeFileSync('token.txt', token);
+            fs.writeFileSync('token.txt', discord_token);
 
         } catch (e) {
             console.error("Couldn't get new token:");
@@ -168,7 +130,12 @@ async function loadup() {
         }
 
     }
-    console.log("Using discord token " + token);
+}
+
+async function loadup() {
+    console.log("Checking Discord token...");
+    await verifyAndRenewDiscordToken();
+    console.log("Using discord token " + discord_token);
     console.log("Checking Twitch token...");
 
     await verifyAndRenewTwitchToken();
@@ -218,7 +185,7 @@ let server = http.createServer((async (req, res) => {
                     const isVerified = nacl.sign.detached.verify(
                         verifyBody,
                         Buffer.from(signature, 'hex'),
-                        Buffer.from(PUBLIC_KEY, 'hex')
+                        Buffer.from(config.discord.public_key, 'hex')
                     );
                     if (!isVerified) {
                         res.writeHead(401, "Unauthorized");
@@ -241,8 +208,8 @@ let server = http.createServer((async (req, res) => {
                         }
                         case constants.APPLICATION_COMMAND_TYPE: {
                             responseObj.type = constants.CHANNEL_MESSAGE_WITH_SOURCE_RESPONSE_TYPE;
-                            jsonBody.rabi_live = live_right_now_details;
-                            jsonBody.appveyor_token = appveyor_token;
+                            jsonBody.rabi_live = rabi_live_right_now_details;
+                            jsonBody.appveyor_token = config.appveyor.token;
                             commands.parseCommand(jsonBody).then((r) => {
                                 responseObj.data = r.responseData;
                                 res.writeHead(200, 'OK', {"Content-Type": "application/json"});
@@ -291,7 +258,7 @@ let server = http.createServer((async (req, res) => {
                         let timestamp = req.headers['twitch-eventsub-message-timestamp'];
                         let sigParts = req.headers['twitch-eventsub-message-signature'].split('=');
 
-                        let computedSig = crypto.createHmac('sha256', eventsub_secret)
+                        let computedSig = crypto.createHmac('sha256', config.twitch.eventsub_secret)
                             .update(id + timestamp + body)
                             .digest('hex');
                         let sentSig = sigParts[1];
@@ -333,11 +300,14 @@ let server = http.createServer((async (req, res) => {
                                                 url: 'https://api.twitch.tv/helix/channels',
                                                 searchParams: {broadcaster_id: parsedBody.event.broadcaster_user_id},
                                                 method: 'GET',
-                                                headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": twitch_client_id}
+                                                headers: {
+                                                    Authorization: 'Bearer ' + twitch_token,
+                                                    "Client-ID": config.twitch.client_id
+                                                }
                                             }).json();
                                             let channelInfo = response.data[0];
                                             console.log(channelInfo.broadcaster_name, "went live with", channelInfo.game_name);
-                                            await alertForNewChannelLive(channelInfo, nep_discord_webhook)
+                                            await alertForNewChannelLive(channelInfo, config.discord.nep_hook)
                                             break;
                                         }
                                         default: {
@@ -374,8 +344,8 @@ let server = http.createServer((async (req, res) => {
                     response = await got({
                         url: 'https://id.twitch.tv/oauth2/token',
                         searchParams: {
-                            client_id: twitch_client_id,
-                            client_secret: twitch_secret,
+                            client_id: config.twitch.client_id,
+                            client_secret: config.twitch.client_secret,
                             code: code,
                             grant_type: 'authorization_code',
                             redirect_uri: 'https://' + calledURL.host + calledURL.pathname
@@ -450,7 +420,7 @@ let server = http.createServer((async (req, res) => {
                             try {
                                 await createSubscription(verifyResponse.user_id);
                                 res.end("Thank you for verifying yourself, " + verifyResponse.login + "! Your notifications are now subscribed to~");
-                                await sendCustomAlert("**" + verifyResponse.login + "** has been added to go-live notifications!", nep_discord_webhook);
+                                await sendCustomAlert("**" + verifyResponse.login + "** has been added to go-live notifications!", config.discord.nep_hook);
                                 discordResponse = "Thank you for verifying yourself, " + verifyResponse.login + "! Your notifications are now subscribed to~";
                             } catch (e) {
                                 console.log(e);
@@ -507,7 +477,7 @@ let server = http.createServer((async (req, res) => {
             } else {
                 res.writeHead(302, "Found", {
                     'Location': 'https://id.twitch.tv/oauth2/authorize' +
-                        '?client_id=' + twitch_client_id +
+                        '?client_id=' + config.twitch.client_id +
                         '&redirect_uri=' + encodeURIComponent(calledURL.toString().split('?')[0]) +
                         '&response_type=code' +
                         '&state=' + state
@@ -564,19 +534,19 @@ async function checkTwitchCategoryForNewPeople(initialize = false) {
             url: 'https://api.twitch.tv/helix/streams',
             searchParams: params,
             method: 'GET',
-            headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": twitch_client_id}
+            headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": config.twitch.client_id}
         }).json();
         for (let channel of response.data) {
             new_live_now.push(channel.user_id);
             new_live_now_details.push(channel);
-            if (live_right_now.indexOf(channel.user_id) === -1 && !initialize) {
+            if (rabi_live_right_now.indexOf(channel.user_id) === -1 && !initialize) {
                 console.log("Rabi Notification! " + channel.user_name + " went live!");
-                await alertForNewChannelLive(channel, rabi_discord_webhook);
+                await alertForNewChannelLive(channel, config.discord.rabi_hook);
             }
         }
     } while (response.pagination && response.pagination.cursor);
-    live_right_now = new_live_now;
-    live_right_now_details = new_live_now_details;
+    rabi_live_right_now = new_live_now;
+    rabi_live_right_now_details = new_live_now_details;
     //console.log("All through! " + live_right_now.length + " people are live!");
 }
 
@@ -594,7 +564,7 @@ async function getAllSubscriptions() {
             url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
             searchParams: params,
             method: 'GET',
-            headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": twitch_client_id}
+            headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": config.twitch.client_id}
         }).json();
         for (let subscription of response.data) {
             enabled_subscriptions.push(subscription);
@@ -611,7 +581,7 @@ async function deleteSubscription(id) {
         url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
         searchParams: {"id": id},
         method: 'DELETE',
-        headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": twitch_client_id}
+        headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": config.twitch.client_id}
     }).json();
     console.log("Subscription deleted.");
     return response;
@@ -623,7 +593,11 @@ async function createSubscription(user_id) {
     let response = await got({
         url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
         method: 'POST',
-        headers: {Authorization: 'Bearer ' + twitch_token, "Client-ID": twitch_client_id, "Content-Type": "application/json"},
+        headers: {
+            Authorization: 'Bearer ' + twitch_token,
+            "Client-ID": config.twitch.client_id,
+            "Content-Type": "application/json"
+        },
         body: JSON.stringify({
             type: "stream.online",
             version: "1",
@@ -633,7 +607,7 @@ async function createSubscription(user_id) {
             transport: {
                 method: "webhook",
                 callback: "https://discord.marenthyu.de/twitch/callback",
-                secret: eventsub_secret
+                secret: config.twitch.eventsub_secret
             }
         })
     }).json();
