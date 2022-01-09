@@ -551,7 +551,7 @@ async function sendCustomAlert(content, hook) {
 
 async function checkTwitchCategoryForNewPeople(initialize = false) {
     await verifyAndRenewTwitchToken();
-    console.log("Checking who is live...");
+    //console.log("Checking who is live...");
     let new_live_now = [];
     let new_live_now_details = [];
     let response = {};
@@ -570,14 +570,14 @@ async function checkTwitchCategoryForNewPeople(initialize = false) {
             new_live_now.push(channel.user_id);
             new_live_now_details.push(channel);
             if (live_right_now.indexOf(channel.user_id) === -1 && !initialize) {
-                console.log("I SENT A GO-LIVE-NOTIFICATION HERE! " + channel.user_name + " went live!");
+                console.log("Rabi Notification! " + channel.user_name + " went live!");
                 await alertForNewChannelLive(channel, rabi_discord_webhook);
             }
         }
     } while (response.pagination && response.pagination.cursor);
     live_right_now = new_live_now;
     live_right_now_details = new_live_now_details;
-    console.log("All through! " + live_right_now.length + " people are live!");
+    //console.log("All through! " + live_right_now.length + " people are live!");
 }
 
 async function getAllSubscriptions() {
@@ -606,7 +606,7 @@ async function getAllSubscriptions() {
 
 async function deleteSubscription(id) {
     await verifyAndRenewTwitchToken();
-    console.log("Deleting subscription...");
+    console.log("Deleting subscription", id);
     let response = await got({
         url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
         searchParams: {"id": id},
@@ -619,7 +619,7 @@ async function deleteSubscription(id) {
 
 async function createSubscription(user_id) {
     await verifyAndRenewTwitchToken();
-    console.log("Creating subscription...");
+    console.log("Creating subscription for", user_id);
     let response = await got({
         url: 'https://api.twitch.tv/helix/eventsub/subscriptions',
         method: 'POST',
