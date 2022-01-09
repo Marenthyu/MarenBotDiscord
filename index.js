@@ -247,7 +247,7 @@ let server = http.createServer((async (req, res) => {
                                 responseObj.data = r.responseData;
                                 res.writeHead(200, 'OK', {"Content-Type": "application/json"});
                                 res.end(JSON.stringify(responseObj));
-                                console.log(JSON.stringify(responseObj))
+                                //console.log(JSON.stringify(responseObj))
                             });
 
                             return;
@@ -258,7 +258,7 @@ let server = http.createServer((async (req, res) => {
                                 valid_nep_auth_states.push(responseObj.nep_auth_state);
                                 delete responseObj.nep_auth_state;
                             }
-                            console.log("Responding with: ", JSON.stringify(responseObj));
+                            //console.log("Responding with: ", JSON.stringify(responseObj));
                         }
                     }
 
@@ -303,9 +303,9 @@ let server = http.createServer((async (req, res) => {
                             res.writeHead(401, "Invalid Signature");
                             res.end();
                         } else {
-                            console.log("GOOD SIGNATURE");
+                            //console.log("GOOD SIGNATURE");
                             let parsedBody = JSON.parse(body.toString());
-                            console.log(JSON.stringify(parsedBody));
+                            //console.log(JSON.stringify(parsedBody));
                             switch (req.headers['twitch-eventsub-message-type']) {
                                 case "webhook_callback_verification": {
                                     res.writeHead(200, "OK");
@@ -342,6 +342,7 @@ let server = http.createServer((async (req, res) => {
                                         }
                                         default: {
                                             console.log("Got unknown notification type", parsedBody.subscription.type);
+                                            console.log(JSON.stringify(parsedBody));
                                         }
                                     }
                                     break;
@@ -382,10 +383,11 @@ let server = http.createServer((async (req, res) => {
                         method: 'POST'
                     }).json();
                 } catch (e) {
-                    console.error(e);
+                    console.error("Error handling Twitch Login:")
                     try {
                         console.error(e.response.body);
-                    } catch (e) {
+                    } catch (e2) {
+                        console.error(e);
                     }
                     res.writeHead(500, "Error");
                     res.end("Something didn't work here - most likely, the code was invalid. Try again and click Allow this time!");
@@ -402,10 +404,11 @@ let server = http.createServer((async (req, res) => {
                         method: 'GET'
                     }).json();
                 } catch (e) {
-                    console.error(e);
+                    console.error("Error validating Twitch Token:")
                     try {
                         console.error(e.response.body);
-                    } catch (e) {
+                    } catch (e2) {
+                        console.error(e);
                     }
                     res.writeHead(500, "Error");
                     res.end("Something didn't work here - most likely, the code was invalid. Try again and click Allow this time!");
@@ -497,7 +500,7 @@ let server = http.createServer((async (req, res) => {
                         break;
                     }
                     default: {
-                        console.log("Unknown state passed: ", state);
+                        console.log("Unknown state passed to twitch login:", state);
                     }
                 }
 
