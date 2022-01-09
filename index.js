@@ -410,6 +410,7 @@ async function handleAddToNotificationSubscriptionsState(state, res, verifyRespo
     if (!foundID) {
         res.end("Thank you for verifying yourself, " + verifyResponse.login + "! However, I could not verify that you actually are in the Nep Discord. Please try again. (This may not be your fault.)");
     } else {
+        valid_nep_auth_states.splice(valid_nep_auth_states.indexOf(foundID), 1);
         console.log("Should add user here:", verifyResponse.user_id);
         let subscriptions = await getAllSubscriptions();
         let already_added = false;
