@@ -3,6 +3,8 @@ let nepbot = require('./nepbot');
 let seedrandom = require('seedrandom');
 let got = require('got');
 
+let NEP_ALERTS_ADD_ID = "AddNepAlerts";
+
 exports.parseCommand = async (data) => {
 
     let content = "A default response (Unknown command?)";
@@ -53,6 +55,10 @@ exports.parseCommand = async (data) => {
         }
         case "rando": {
             responseData = await randomenu(data);
+            break;
+        }
+        case "nepstream": {
+            responseData = await nepstreams(data);
             break;
         }
     }
@@ -378,4 +384,46 @@ async function randomenu(data) {
         content: responseContent,
         components: responseComponents
     }
+}
+
+
+async function nepstreams() {
+    let responseData = {};
+    responseData.content = "Use the Buttons below to manage if you'll appear in the Streams channel or not";
+    responseData.components = [
+        {
+            type: 1,
+            components: [
+                {
+                    type: 2,
+                    style: 3,
+                    custom_id: NEP_ALERTS_ADD_ID,
+                    label: "Add me to Stream Notifications"
+                },
+                {
+                    type: 2,
+                    style: 5,
+                    url: "https://discord.marenthyu.de/twitch/login?state=remove",
+                    label: "Remove me",
+                    disabled: false
+                }
+                /**{
+                    type: 2,
+                    style: 5,
+                    url: "https://discord.marenthyu.de/twitch/login?state=add",
+                    label: "Add",
+                    disabled: false
+                },
+                {
+                    type: 2,
+                    style: 5,
+                    url: "https://discord.marenthyu.de/twitch/login?state=remove",
+                    label: "Remove",
+                    disabled: false
+                }**/
+            ]
+        }
+    ];
+    responseData.flags = 1 << 6;
+    return responseData;
 }

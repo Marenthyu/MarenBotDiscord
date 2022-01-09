@@ -49,6 +49,31 @@ exports.componentHandler = function (jsonBody) {
                     });
                     break;
                 }
+                case "AddNepAlerts": {
+                    responseObj.data = {
+                        "content": "Please click the following Link to verify your subscription",
+                        components: [
+                            {
+                                "type": 1,
+                                "components": [
+                                    {
+                                        "style": 5,
+                                        "label": `Finalize Notification Subscription`,
+                                        "url": "https://discord.marenthyu.de/twitch/login?state=add-" + jsonBody.message.interaction.id,
+                                        "disabled": false,
+                                        "type": 2
+                                    }
+                                ]
+                            }
+                        ]
+                    };
+                    responseObj.nep_auth_state = {
+                        id: jsonBody.message.interaction.id,
+                        token: jsonBody.token,
+                        application: jsonBody.application_id
+                    };
+                    break;
+                }
                 default: {
                     responseObj.data = {"content": "You interacted with a component, congratulations!", components: []};
                 }
