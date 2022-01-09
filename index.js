@@ -315,6 +315,8 @@ function handleEventSubCallback(req, res) {
                                         }).json();
                                         let channelInfo = response.data[0];
                                         console.log(channelInfo.broadcaster_name, "went live with", channelInfo.game_name);
+                                        // /streams and /channel returns it differently, so let's manually override it
+                                        channelInfo.user_name = channelInfo.broadcaster_name;
                                         await alertForNewChannelLive(channelInfo, config.discord.nep_hook)
                                         break;
                                     }
