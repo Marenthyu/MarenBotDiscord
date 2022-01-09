@@ -270,13 +270,12 @@ function handleEventSubCallback(req, res) {
                     res.end();
                 } else {
                     //console.log("GOOD SIGNATURE");
-                    let msg_id = req.headers['twitch-eventsub-message-id'];
-                    if (recent_twitch_notifications.indexOf(msg_id) !== -1) {
-                        console.log("Received duplicated / retried EventSub message", msg_id, "- acknowledging, but ignoring...");
+                    if (recent_twitch_notifications.indexOf(id) !== -1) {
+                        console.log("Received duplicated / retried EventSub message", id, "- acknowledging, but ignoring...");
                         res.writeHead(200, "OK");
                         res.end(JSON.stringify({error:"Already Processed"}));
                     } else {
-                        recent_twitch_notifications.push(msg_id);
+                        recent_twitch_notifications.push(id);
                         if (recent_twitch_notifications.length > 1000) {
                             recent_twitch_notifications.shift(); // remove first entry; We only keep track of the last 1000 messages. Don't want a memory leak.
                         }
