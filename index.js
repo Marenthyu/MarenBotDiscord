@@ -24,6 +24,8 @@ let rabi_live_right_now_details = [];
 
 let valid_nep_auth_states = [];
 
+let recent_twitch_notifications = [];
+
 async function verifyAndRenewTwitchToken() {
     let needsToken = true;
     if (twitch_token) {
@@ -268,59 +270,71 @@ function handleEventSubCallback(req, res) {
                     res.end();
                 } else {
                     //console.log("GOOD SIGNATURE");
-                    let parsedBody = JSON.parse(body.toString());
-                    //console.log(JSON.stringify(parsedBody));
-                    switch (req.headers['twitch-eventsub-message-type']) {
-                        case "webhook_callback_verification": {
-                            res.writeHead(200, "OK");
-                            res.end(parsedBody.challenge);
-                            console.log("Acknowledged new subscription with id", parsedBody.subscription.id);
-                            break;
+                    let msg_id = req.headers['twitch-eventsub-message-id'];
+                    if (recent_twitch_notifications.indexOf(msg_id) !== -1) {
+                        console.log("Received duplicated / retried EventSub message", msg_id, "- acknowledging, but ignoring...");
+                        res.writeHead(200, "OK");
+                        res.end(JSON.stringify({error:"Already Processed"}));
+                    } else {
+                        recent_twitch_notifications.push(msg_id);
+                        if (recent_twitch_notifications.length > 1000) {
+                            recent_twitch_notifications.shift(); // remove first entry; We only keep track of the last 1000 messages. Don't want a memory leak.
                         }
-                        case "notification": {
-                            res.writeHead(204, "No Content");
-                            res.end();
-                            console.log("Got a notification!");
-                            switch (parsedBody.subscription.type) {
-                                case "channel.follow": {
-                                    console.log(parsedBody.event.user_name, "has followed", parsedBody.event.broadcaster_user_name, "!");
-                                    break;
-                                }
-                                case "user.authorization.grant": {
-                                    //console.log("Got a grant notification:", JSON.stringify(parsedBody.event));
-                                    console.log(parsedBody.event.user_name, "authorized", parsedBody.event.client_id);
-                                    break;
-                                }
-                                case "stream.online": {
-                                    console.log(parsedBody.event.broadcaster_user_name + " just went live - checking current info...");
-                                    let response = await got({
-                                        url: 'https://api.twitch.tv/helix/channels',
-                                        searchParams: {broadcaster_id: parsedBody.event.broadcaster_user_id},
-                                        method: 'GET',
-                                        headers: {
-                                            Authorization: 'Bearer ' + twitch_token,
-                                            "Client-ID": config.twitch.client_id
-                                        }
-                                    }).json();
-                                    let channelInfo = response.data[0];
-                                    console.log(channelInfo.broadcaster_name, "went live with", channelInfo.game_name);
-                                    await alertForNewChannelLive(channelInfo, config.discord.nep_hook)
-                                    break;
-                                }
-                                default: {
-                                    console.log("Got unknown notification type", parsedBody.subscription.type);
-                                    console.log(JSON.stringify(parsedBody));
-                                }
+                        let parsedBody = JSON.parse(body.toString());
+                        //console.log(JSON.stringify(parsedBody));
+                        switch (req.headers['twitch-eventsub-message-type']) {
+                            case "webhook_callback_verification": {
+                                res.writeHead(200, "OK");
+                                res.end(parsedBody.challenge);
+                                console.log("Acknowledged new subscription with id", parsedBody.subscription.id);
+                                break;
                             }
-                            break;
-                        }
-                        case "revocation": {
-                            res.writeHead(204, "No Content");
-                            res.end();
-                            console.log("Revocation of subsctiption", parsedBody.subscription.id, "acknowledged.");
-                            break;
+                            case "notification": {
+                                res.writeHead(204, "No Content");
+                                res.end();
+                                console.log("Got a notification!");
+                                switch (parsedBody.subscription.type) {
+                                    case "channel.follow": {
+                                        console.log(parsedBody.event.user_name, "has followed", parsedBody.event.broadcaster_user_name, "!");
+                                        break;
+                                    }
+                                    case "user.authorization.grant": {
+                                        //console.log("Got a grant notification:", JSON.stringify(parsedBody.event));
+                                        console.log(parsedBody.event.user_name, "authorized", parsedBody.event.client_id);
+                                        break;
+                                    }
+                                    case "stream.online": {
+                                        console.log(parsedBody.event.broadcaster_user_name + " just went live - checking current info...");
+                                        let response = await got({
+                                            url: 'https://api.twitch.tv/helix/channels',
+                                            searchParams: {broadcaster_id: parsedBody.event.broadcaster_user_id},
+                                            method: 'GET',
+                                            headers: {
+                                                Authorization: 'Bearer ' + twitch_token,
+                                                "Client-ID": config.twitch.client_id
+                                            }
+                                        }).json();
+                                        let channelInfo = response.data[0];
+                                        console.log(channelInfo.broadcaster_name, "went live with", channelInfo.game_name);
+                                        await alertForNewChannelLive(channelInfo, config.discord.nep_hook)
+                                        break;
+                                    }
+                                    default: {
+                                        console.log("Got unknown notification type", parsedBody.subscription.type);
+                                        console.log(JSON.stringify(parsedBody));
+                                    }
+                                }
+                                break;
+                            }
+                            case "revocation": {
+                                res.writeHead(204, "No Content");
+                                res.end();
+                                console.log("Revocation of subsctiption", parsedBody.subscription.id, "acknowledged.");
+                                break;
+                            }
                         }
                     }
+
 
                 }
             }
